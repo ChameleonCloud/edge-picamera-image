@@ -1,40 +1,45 @@
 # edge-picamera-image
-Jupyter Notebook Trovi artifact detailing how to use a Pi Camera Module 3 on CHI@Edge
+Trovi artifact detailing how to use the libcamera driver stack
+on CHI@Edge.
 
-This Dockerfile packages a manually compiled libcamera package with a
-modification to bypass the platform check that currently fails when
-running in a container on CHI@Edge. Alongside libcamera, this dockerfile
-compiles rpicam apps, a series of apps that showcase how to use
-libcamera on the raspberry pi platform. For proper functionality,
-libcamera requires access to the following /dev devices inside the
-container:
+Provides a Jupyter Notebook, Dockerfile, and example python code.
 
-- dma_heap: required for contiguous memory allocation used for capture
-  buffers
-- media0:4
-- v4l-subdev0 and v4l-subdev1, both of which are only available after
-  specifying the imx-708 Raspberry Pi device tree overlay in /boot/config.txt
-  (imx-708 refers to the driver specific to the pi camera module 3)
-- vchiq
-- vcsm-cma
-- video0, video1, video10:16, video18:23, and video31
+The Dockerfile packages minimal dependencies for libcamera libraries, picamera2
+libcamera bindings, and libcamera cli applications. Due to installing from the 
+raspberry pi maintained apt repo, we no longer need manual compilation of these deps.
 
-The /boot/config.txt options used to enable the device to expose the above are as
-follows:
-- gpu_mem_1024=256
-- gpu_mem_256=64
-- gpu_mem_512=128
-- start_x=1
-- camera_auto_detect=1
-- disable_fw_kms_setup=0
-- dtoverlay=imx708,cma-256
-- avoid_warnings=1
-- disable_splash=0
-- dtparam=i2c_arm=on
-- dtparam=spi=on
-- dtparam=audio=on
-- enable_uart=0
-- gpu_mem=128
+For further details, please refer to the Raspberry Pi Camera documentation:
+https://www.raspberrypi.com/documentation/computers/camera_software.html
 
-With all the above options in place, libcamera detect the
-camera and be able to use the sensor to capture pictures and videos.
+For proper functionality, libcamera requires access to the following devices
+under /dev inside the container. In CHI@Edge, this is provided by the 
+"pi_libcamera" device profile.
+
+video* device nodes are  documented here: https://www.raspberrypi.com/documentation/computers/camera_software.html#device-nodes-when-using-libcamera
+
+- `dma_heap`: required for contiguous memory allocation used for capture buffers
+- `media[0:4]`
+- `v4l-subdev0`
+- `vchiq`
+- `vcsm-cma`
+- `video[10:16]`
+- `video[18:23]`
+- `video31`
+
+In order for all of these devices to appear, the following /boot/config.txt
+options must be specified.
+
+- camera_auto_detect=1  # enables automatic loading of correct dtoverlay
+- start_x=0             # default, ensures legacy camera stack does not load
+
+And, `gpu_mem` must *not* be set, or if set, be at least 128 or the camera
+stack will not start.
+
+For the picamera3 (imx708) to be auto-detected, a relatively recent OS version
+is needed. BalenaOS version 6.5.42+rev2 with kernel 6.12.32-v8 is known to work.
+
+Finally, libcamera requires read-only access to `/run/udev` to enumerate 
+available cameras. This is also provided by CHI@Edge, but can be accomplished 
+manually via 
+
+`docker run -v /run/udev:/run/udev:ro`
